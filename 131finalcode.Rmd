@@ -1,0 +1,165 @@
+---
+title: "Project Code"
+author: "Travis Klipp Brian Shoung""
+date: "June 1, 2016"
+output: word_document
+---
+
+```{r warning=FALSE, message=FALSE} 
+library(xlsx)
+library("ggplot2") 
+library(data.table)
+library(ISLR)
+library(gridExtra)
+library(class)
+library(GGally)
+library(MASS)
+library(Hmisc)
+library(tree)
+#loading data and turning into data table
+energy<-read.xlsx("energydata.xlsx",sheetIndex=1,startRow = 1,endRow=769,colIndex=1:10,header=TRUE,as.data.frame = TRUE)
+energy<-as.data.table(energy)
+colnames(energy)<-c("RelativeCompactness","SurfaceArea","WallArea","RoofArea","OverallHeight","Orientation","GlazingArea","GlazingAreaDistribution","HeatingLoad","CoolingLoad")
+head(energy)
+```
+
+```{r }
+
+reg=lm(CoolingLoad~.-HeatingLoad,data=energy) ##linear analysis
+```
+
+```{r }
+q<-quantile(energy$CoolingLoad,seq(0,1,.5)) 
+q
+h<-quantile(energy$HeatingLoad,seq(0,1,.5))
+h
+energy$CoolingLoad[energy$CoolingLoad<22.08]="Low"
+energy$CoolingLoad[energy$CoolingLoad>=22.0820 & energy$CoolingLoad<50]="High"
+energy$HeatingLoad[energy$HeatingLoad<18.95]="Low"
+energy$HeatingLoad[energy$HeatingLoad>=18.95 & energy$HeatingLoad<50]="High"
+energy$CoolingLoad=factor(energy$CoolingLoad,levels=c("Low","High"),labels=c("Low","High"))
+energy$HeatingLoad=factor(energy$HeatingLoad,levels=c("Low","High"),labels=c("Low","High"))
+energy$GlazingAreaDistribution=factor(energy$GlazingAreaDistribution,levels=c(0,1,2,3,4,5),labels=c(0,1,2,3,4,5))
+energy$Orientation=factor(energy$Orientation,levels=c(2,3,4,5),labels=c(2,3,4,5))
+```
+
+```{r }
+g1 <- qplot(RelativeCompactness, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g2 <- qplot(SurfaceArea, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g3 <- qplot(WallArea, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g4 <- qplot(RoofArea, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g5 <- qplot(OverallHeight, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g6 <- qplot(Orientation, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g7 <- qplot(GlazingArea, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+g8 <- qplot(GlazingAreaDistribution, CoolingLoad, data = energy, colour = CoolingLoad,geom = c("point","jitter"))
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8, ncol=3, nrow=3, top="Scatter Plots")
+h1 <- qplot(RelativeCompactness, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h2 <- qplot(SurfaceArea, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h3 <- qplot(WallArea, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h4 <- qplot(RoofArea, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h5 <- qplot(OverallHeight, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h6 <- qplot(Orientation, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h7 <- qplot(GlazingArea, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+h8 <- qplot(GlazingAreaDistribution, HeatingLoad, data = energy, colour = HeatingLoad,geom = c("point","jitter"))
+
+```
+
+```{r }
+b1 <- qplot(CoolingLoad,RelativeCompactness , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b2 <- qplot(CoolingLoad,SurfaceArea , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b3 <- qplot(CoolingLoad,WallArea , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b4 <- qplot(CoolingLoad,RoofArea , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b5 <- qplot(CoolingLoad,OverallHeight , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b6 <- qplot(CoolingLoad,Orientation , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+b7 <- qplot(CoolingLoad,GlazingAreaDistribution , data = energy, colour = CoolingLoad,
+            geom = c("boxplot","jitter"))
+
+```
+
+```{r eval=FALSE}
+ggpairs(energy,mapping=aes(color=CoolingLoad),columns=1:8)
+```
+
+```{r warning=FALSE, message=FALSE }
+#splitting into training set (75 percent) and test set (25%)
+set.seed(2)
+energy1<-energy[,list(RelativeCompactness,SurfaceArea,WallArea,RoofArea,OverallHeight,Orientation, GlazingArea,GlazingAreaDistribution,CoolingLoad)]
+energy2<-energy[,list(RelativeCompactness,SurfaceArea,WallArea,OverallHeight,Orientation, GlazingArea,GlazingAreaDistribution,HeatingLoad)]
+N<-nrow(energy)
+train<-sample(1:N,size=floor(N*.75),replace=F)
+energy.train<-energy1[train,]
+energy.test<-energy1[-train,]
+cool.train<-energy.train$CoolingLoad
+cool.test<-energy.test$CoolingLoad
+pred.train<-energy.train[,list(RelativeCompactness,SurfaceArea,WallArea,OverallHeight,Orientation,GlazingArea,GlazingAreaDistribution)]
+pred.test<-energy.test[,list(RelativeCompactness,WallArea,OverallHeight,Orientation,GlazingArea,GlazingAreaDistribution)]
+
+energy.train2<-energy2[train,]
+energy.test2<-energy2[-train,]
+heat.train<-energy.train2$HeatingLoad
+heat.test<-energy.test2$HeatingLoad
+pred.train2<-energy.train2[,list(RelativeCompactness,SurfaceArea,WallArea,OverallHeight,Orientation,GlazingArea,GlazingAreaDistribution)]
+pred.test2<-energy.test2[,list(RelativeCompactness,SurfaceArea,WallArea,OverallHeight,Orientation,GlazingArea,GlazingAreaDistribution)]
+
+```
+
+```{r warning=FALSE, message=FALSE}
+## logistic regression
+glm.fit<-glm(CoolingLoad~RelativeCompactness+SurfaceArea+WallArea+OverallHeight+Orientation+GlazingArea+GlazingAreaDistribution,data=energy.train, family=binomial)
+glm.probs<-predict(glm.fit,type="response")
+glm.pred=predict(glm.fit,energy.test,type="response")
+glm.pred.class=rep("Low",nrow(energy.test))
+glm.pred.class[glm.pred>0.5]="High"
+mean(glm.pred.class != energy.test$CoolingLoad)
+```
+
+```{r warning=FALSE, message=FALSE}
+#Linear Discriminant
+lda.fit<-lda(CoolingLoad~RelativeCompactness+SurfaceArea+WallArea+OverallHeight+Orientation+GlazingArea+GlazingAreaDistribution,data=energy.train)
+lda.pred<-predict(lda.fit,energy.test)
+lda.pred<-as.data.frame(lda.pred)
+lda.pred.class=rep("High",nrow(energy.test))
+lda.pred.class[lda.pred$posterior.High>0.5]="Low"
+lda.test.error=mean(lda.pred$class!= energy.test$CoolingLoad)
+lda.test.error
+```
+
+```{r warning=FALSE, message=FALSE}
+##simple tree analysis
+setup1=tree.control(nrow(energy.train), mincut = 5, minsize = 10, mindev = 0.00)
+energy.tree<-tree(CoolingLoad~RelativeCompactness+SurfaceArea+WallArea+RoofArea+OverallHeight+Orientation+GlazingArea+GlazingAreaDistribution,data=energy.train,control=setup1)
+summary(energy.tree)
+energy.tree2<-tree(CoolingLoad~RelativeCompactness+SurfaceArea+WallArea+OverallHeight+Orientation+GlazingArea+GlazingAreaDistribution,data=energy.train,split="gini")
+energy.pred<-predict(energy.tree,energy.test,type="class")
+mean(energy.pred!=energy.test$CoolingLoad)
+```
+
+```{r warning=FALSE, message=FALSE}
+##random forest
+library(randomForest)
+rf<-randomForest(CoolingLoad~RelativeCompactness+SurfaceArea+WallArea+RoofArea+OverallHeight+Orientation+GlazingArea+GlazingAreaDistribution,data=energy.train,importance=TRUE,ntrees=1000)
+rfpred<-predict(rf,energy.test)
+mean(rfpred!=energy.test$CoolingLoad)
+```
+
+```{r warning=FALSE, message=FALSE}
+library(ROCR)
+lda.predict <- prediction(lda.pred$posterior.Low, energy.test$CoolingLoad)
+lda.perf <- performance(lda.predict, measure = "tpr", x.measure = "fpr")
+treemodel1<-predict(energy.tree,energy.test)
+treemodel1<-as.data.table(treemodel1)
+treepred<-prediction(treemodel1[,Low], energy.test$CoolingLoad)
+predplot <- performance(treepred, measure = "tpr", x.measure = "fpr")
+rfpredprob<-predict(rf,energy.test,type="prob")
+rfpredprob<-as.data.table(rfpredprob)
+pred.rf<-prediction(rfpredprob[,Low],energy.test$CoolingLoad)
+perf.rf <- performance(pred.rf, measure = "tpr", x.measure = "fpr")
+
+```
+
